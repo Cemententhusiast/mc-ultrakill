@@ -15,6 +15,7 @@ public final class StyleConfig {
     public boolean singleplayerXp = false;
     public double xpPerPoint = 1;
     public float hudScale = 1;
+    public float hudTiltDegrees = -4;
     public int rightMargin = 12;
     public int verticalOffset = 0;
 
@@ -37,8 +38,10 @@ public final class StyleConfig {
     private void sanitize() {
         if (!Double.isFinite(xpPerPoint)) xpPerPoint = 1;
         if (!Float.isFinite(hudScale)) hudScale = 1;
+        if (!Float.isFinite(hudTiltDegrees)) hudTiltDegrees = -4;
         xpPerPoint = Math.clamp(xpPerPoint, 0, 100);
         hudScale = Math.clamp(hudScale, 0.5f, 2f);
+        hudTiltDegrees = Math.clamp(hudTiltDegrees, -15f, 15f);
         rightMargin = Math.clamp(rightMargin, 0, 500);
         verticalOffset = Math.clamp(verticalOffset, -500, 500);
     }

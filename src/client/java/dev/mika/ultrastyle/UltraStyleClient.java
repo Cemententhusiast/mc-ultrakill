@@ -18,7 +18,6 @@ import net.minecraft.network.protocol.game.ClientboundDamageEventPacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.level.block.state.BlockState;
@@ -26,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.IntSupplier;
-import static net.fabricmc.fabric.api.client.command.v2.ClientCommandManager.*;
+import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.*;
 
 public final class UltraStyleClient implements ClientModInitializer {
     public static StyleConfig config;
@@ -38,7 +37,7 @@ public final class UltraStyleClient implements ClientModInitializer {
     private static boolean dead;
     private static double xpRemainder;
     private record Hit(UUID uuid, long tick) {}
-    private record PendingBlock(BlockState original, int points, long tick) {}
+    private record PendingBlock(int points, long tick) {}
 
     @Override public void onInitializeClient() {
         config = StyleConfig.load();
@@ -46,7 +45,7 @@ public final class UltraStyleClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(UltraStyleClient::tick);
         ClientPlayerBlockBreakEvents.AFTER.register((level, player, pos, oldState) -> {
             if (Minecraft.getInstance().hasSingleplayerServer() || player.isCreative() || player.isSpectator()) return;
-            if (blocks.size() < 128) blocks.put(pos.immutable(), new PendingBlock(oldState, blockPoints(oldState), state.time()));
+            if (blocks.size() < 128) blocks.put(pos.immutable(), new PendingBlock(blockPoints(oldState), state.time()));
         });
         PlayerBlockBreakEvents.AFTER.register((level, player, pos, oldState, blockEntity) -> {
             if (player instanceof ServerPlayer serverPlayer && !player.isCreative() && !player.isSpectator()) {
@@ -125,7 +124,9 @@ public final class UltraStyleClient implements ClientModInitializer {
             var entry = iterator.next();
             if (state.time() - entry.getValue().tick() < 10) continue;
             // A short settling window rejects ordinary server rollbacks, but is not authoritative.
-            if (!dead && client.level.hasChunkAt(entry.getKey()) && client.level.getBlockState(entry.getKey()).isAir())
+            BlockPos pos = entry.getKey();
+            if (!dead && client.level.getChunkSource().hasChunk(pos.getX() >> 4, pos.getZ() >> 4)
+                    && client.level.getBlockState(pos).isAir())
                 state.mine(entry.getValue().points());
             iterator.remove();
         }
@@ -151,7 +152,7 @@ public final class UltraStyleClient implements ClientModInitializer {
 
     public static void observedDeath(Entity entity) {
         Minecraft client = Minecraft.getInstance();
-        if (client.hasSingleplayerServer() || !(entity instanceof Mob) || client.player == null) return;
+        if (client.hasSingleplayerServer() || !(entity instanceof Mob) || client.player == null || client.player.isDeadOrDying()) return;
         Hit hit = hits.remove(entity.getId());
         if (hit != null && hit.uuid().equals(entity.getUUID()) && state.time() - hit.tick() <= 100)
             state.kill(entity instanceof Enemy ? 100 : 25);
@@ -160,9 +161,13 @@ public final class UltraStyleClient implements ClientModInitializer {
     private static void registerCommands() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(literal("ultrastyle")
             .executes(ctx -> {
-                ctx.getSource().sendFeedback(Component.literal("UltraStyle | score " + state.total() + " | XP " + (config.singleplayerXp ? config.xpPerPoint + "/point (single-player only)" : "off") + " | hud, bosses, xp <0–100>, reset, reload")); return 1;
+                ctx.getSource().sendFeedback(Component.literal("UltraStyle | score " + state.total() + " | XP " + (config.singleplayerXp ? config.xpPerPoint + "/point (single-player only)" : "off") + " | hud, tilt <-15–15>, bosses, xp <0–100>, reset, reload")); return 1;
             })
             .then(literal("hud").executes(ctx -> { config.hudEnabled = !config.hudEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Style HUD: " + config.hudEnabled)); return 1; }))
+            .then(literal("tilt").then(argument("degrees", DoubleArgumentType.doubleArg(-15, 15)).executes(ctx -> {
+                config.hudTiltDegrees = (float) DoubleArgumentType.getDouble(ctx, "degrees"); config.save();
+                ctx.getSource().sendFeedback(Component.literal("Style HUD tilt: " + config.hudTiltDegrees + " degrees")); return 1;
+            })))
             .then(literal("bosses").executes(ctx -> { config.bossBarsEnabled = !config.bossBarsEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Custom boss bars: " + config.bossBarsEnabled)); return 1; }))
             .then(literal("xp").then(argument("multiplier", DoubleArgumentType.doubleArg(0, 100)).executes(ctx -> {
                 config.xpPerPoint = DoubleArgumentType.getDouble(ctx, "multiplier"); config.singleplayerXp = config.xpPerPoint > 0; xpRemainder = 0; config.save();

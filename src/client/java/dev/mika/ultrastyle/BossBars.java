@@ -22,7 +22,8 @@ public final class BossBars {
     public void render(GuiGraphicsExtractor graphics, Map<UUID, LerpingBossEvent> events) {
         trails.keySet().retainAll(events.keySet());
         var client = Minecraft.getInstance();
-        if (client.options.hideGui) return;
+        if (client.gui.hud.isHidden()) return;
+        if (!events.isEmpty()) graphics.nextStratum();
         int width = Math.min(300, graphics.guiWidth() - 32);
         if (width < 40) return;
         int x = (graphics.guiWidth() - width) / 2;

@@ -10,17 +10,29 @@ public final class StyleHud {
     public static void render(GuiGraphicsExtractor graphics, DeltaTracker delta) {
         var client = Minecraft.getInstance();
         var config = UltraStyleClient.config;
-        if (!config.hudEnabled || client.player == null || client.options.hideGui) return;
+        if (!config.hudEnabled || client.player == null || client.gui.hud.isHidden()) return;
         StyleState state = UltraStyleClient.state;
         float scale = Math.min(config.hudScale, Math.min(graphics.guiWidth() / 180f, graphics.guiHeight() / 200f));
         int width = 150;
-        int x = Math.max(0, Math.round(graphics.guiWidth() - width * scale - config.rightMargin));
-        int y = Math.clamp(graphics.guiHeight() / 2 - Math.round(65 * scale) + config.verticalOffset, 0,
-            Math.max(0, graphics.guiHeight() - Math.round(180 * scale)));
+        int height = 180; // Reserve space for all five feed entries, even while empty.
+        float angle = (float) Math.toRadians(config.hudTiltDegrees);
+        float cos = Math.abs((float) Math.cos(angle));
+        float sin = Math.abs((float) Math.sin(angle));
+        float rotatedWidth = width * cos + height * sin;
+        float rotatedHeight = width * sin + height * cos;
+        // Fit the rotated rectangle, not just the original panel, inside the viewport.
+        scale = Math.min(scale, Math.min(graphics.guiWidth() / rotatedWidth, graphics.guiHeight() / rotatedHeight));
+        float halfWidth = rotatedWidth * scale / 2;
+        float halfHeight = rotatedHeight * scale / 2;
+        float centerX = Math.clamp(graphics.guiWidth() - config.rightMargin - halfWidth,
+            halfWidth, Math.max(halfWidth, graphics.guiWidth() - halfWidth));
+        float centerY = Math.clamp(graphics.guiHeight() / 2f + 25 * scale + config.verticalOffset,
+            halfHeight, Math.max(halfHeight, graphics.guiHeight() - halfHeight));
         int rank = state.rank();
         int color = COLORS[rank];
         graphics.pose().pushMatrix();
-        graphics.pose().translate(x, y).scale(scale, scale);
+        graphics.pose().translate(centerX, centerY).scale(scale, scale)
+            .rotate(angle).translate(-width / 2f, -height / 2f);
         graphics.fill(0, 0, width, 72, 0xc0141218);
         graphics.fill(0, 0, 3, 72, color);
         graphics.text(client.font, "S T Y L E", 10, 7, 0xffaaaaaf, false);
