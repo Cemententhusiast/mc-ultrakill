@@ -13,7 +13,7 @@ The mod does not need to be installed on multiplayer servers. It is explicitly c
 ## Features
 
 - Right-side rank, progress meter, XP multiplier, multikill count, and fading action feed.
-- The entire style panel tilts upward toward the right by 4 degrees by default. Its rotated bounds stay inside the screen.
+- The entire style panel is yawed 30 degrees into depth by default: its right edge appears nearer and taller, while vertical edges stay upright. Text and meter vertices share the same perspective projection; there is no screen-plane rotation. Its projected bounds stay inside the screen.
 - Ranks D, C, B, A, S, SS, SSS, and ULTRAKILL provide XP multipliers ×1, ×2, ×3, ×4, ×5, ×6, ×7, and ×8 respectively. These are our Minecraft balancing values, not an exact recreation of ULTRAKILL mechanics.
 - Hostile mob kills award 100 points; other mobs award 25.
 - Consecutive kills within four seconds add 50 bonus points per combo step, capped at 200 bonus points per kill.
@@ -32,7 +32,7 @@ These commands run locally and do not require operator permissions:
 | --- | --- |
 | `/ultrastyle` | Show style multiplier, XP setting, and command hints |
 | `/ultrastyle hud` | Toggle the style panel |
-| `/ultrastyle tilt -4` | Set the score panel angle immediately (−15 to 15 degrees); use 0 for a level panel |
+| `/ultrastyle tilt 30` | Set the depth angle immediately (−45 to 45 degrees); use 0 for a flat panel |
 | `/ultrastyle bosses` | Toggle replacement boss bars; disabling restores vanilla bars |
 | `/ultrastyle xp on` | Enable the rank-based XP multiplier in single-player (default) |
 | `/ultrastyle xp off` | Restore normal XP gain while keeping the style HUD |
@@ -55,11 +55,13 @@ This replaces the earlier `/ultrastyle xp <number>` conversion. Old `singleplaye
   "bossBarsEnabled": true,
   "styleXpEnabled": true,
   "hudScale": 1.0,
-  "hudTiltDegrees": -4.0,
+  "hudYawDegrees": 30.0,
   "rightMargin": 12,
   "verticalOffset": 0
 }
 ```
+
+The previous `hudTiltDegrees` setting is ignored; `hudYawDegrees` now controls depth, so existing configurations automatically get the corrected perspective. Positive values bring the right edge forward; negative values reverse the depth.
 
 Use `hudScale` (0.5–2), `rightMargin`, and `verticalOffset` to position the panel around other HUD mods or the server scoreboard. Scores are session-only: reconnecting or returning to the title screen resets them. Changing dimension preserves score but clears pending observations.
 

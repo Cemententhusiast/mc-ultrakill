@@ -182,12 +182,12 @@ public final class UltraStyleClient implements ClientModInitializer {
     private static void registerCommands() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(literal("ultrastyle")
             .executes(ctx -> {
-                ctx.getSource().sendFeedback(Component.literal("UltraStyle | style x" + state.multiplier() + " | XP " + (config.styleXpEnabled ? "rank multiplier (single-player only)" : "off") + " | hud, tilt <-15–15>, bosses, xp on/off, reset, reload")); return 1;
+                ctx.getSource().sendFeedback(Component.literal("UltraStyle | style x" + state.multiplier() + " | XP " + (config.styleXpEnabled ? "rank multiplier (single-player only)" : "off") + " | hud, tilt <-45–45>, bosses, xp on/off, reset, reload")); return 1;
             })
             .then(literal("hud").executes(ctx -> { config.hudEnabled = !config.hudEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Style HUD: " + config.hudEnabled)); return 1; }))
-            .then(literal("tilt").then(argument("degrees", DoubleArgumentType.doubleArg(-15, 15)).executes(ctx -> {
-                config.hudTiltDegrees = (float) DoubleArgumentType.getDouble(ctx, "degrees"); config.save();
-                ctx.getSource().sendFeedback(Component.literal("Style HUD tilt: " + config.hudTiltDegrees + " degrees")); return 1;
+            .then(literal("tilt").then(argument("degrees", DoubleArgumentType.doubleArg(-45, 45)).executes(ctx -> {
+                config.hudYawDegrees = (float) DoubleArgumentType.getDouble(ctx, "degrees"); config.save();
+                ctx.getSource().sendFeedback(Component.literal("Style HUD depth angle: " + config.hudYawDegrees + " degrees")); return 1;
             })))
             .then(literal("bosses").executes(ctx -> { config.bossBarsEnabled = !config.bossBarsEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Custom boss bars: " + config.bossBarsEnabled)); return 1; }))
             .then(literal("xp")

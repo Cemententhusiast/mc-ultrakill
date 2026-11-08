@@ -15,46 +15,39 @@ public final class StyleHud {
         float scale = Math.min(config.hudScale, Math.min(graphics.guiWidth() / 180f, graphics.guiHeight() / 200f));
         int width = 150;
         int height = 180; // Reserve space for all five feed entries, even while empty.
-        float angle = (float) Math.toRadians(config.hudTiltDegrees);
-        float cos = Math.abs((float) Math.cos(angle));
-        float sin = Math.abs((float) Math.sin(angle));
-        float rotatedWidth = width * cos + height * sin;
-        float rotatedHeight = width * sin + height * cos;
-        // Fit the rotated rectangle, not just the original panel, inside the viewport.
-        scale = Math.min(scale, Math.min(graphics.guiWidth() / rotatedWidth, graphics.guiHeight() / rotatedHeight));
-        float halfWidth = rotatedWidth * scale / 2;
-        float halfHeight = rotatedHeight * scale / 2;
-        float centerX = Math.clamp(graphics.guiWidth() - config.rightMargin - halfWidth,
-            halfWidth, Math.max(halfWidth, graphics.guiWidth() - halfWidth));
-        float centerY = Math.clamp(graphics.guiHeight() / 2f + 25 * scale + config.verticalOffset,
-            halfHeight, Math.max(halfHeight, graphics.guiHeight() - halfHeight));
+        HudPerspective projection = new HudPerspective(width, height, config.hudYawDegrees);
+        float projectedWidth = projection.right() - projection.left();
+        float projectedHeight = projection.bottom() - projection.top();
+        scale = Math.min(scale, Math.min(graphics.guiWidth() / projectedWidth, graphics.guiHeight() / projectedHeight));
+        float originX = Math.clamp(graphics.guiWidth() - config.rightMargin - projection.right() * scale,
+            -projection.left() * scale, Math.max(-projection.left() * scale, graphics.guiWidth() - projection.right() * scale));
+        float originY = Math.clamp(graphics.guiHeight() / 2f + 25 * scale + config.verticalOffset,
+            -projection.top() * scale, Math.max(-projection.top() * scale, graphics.guiHeight() - projection.bottom() * scale));
+        PerspectiveHudCanvas canvas = new PerspectiveHudCanvas(graphics, projection, originX, originY, scale);
         int rank = state.rank();
         int color = COLORS[rank];
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(centerX, centerY).scale(scale, scale)
-            .rotate(angle).translate(-width / 2f, -height / 2f);
-        graphics.fill(0, 0, width, 72, 0xc0141218);
-        graphics.fill(0, 0, 3, 72, color);
-        graphics.text(client.font, "S T Y L E", 10, 7, 0xffaaaaaf, false);
+        canvas.fill(0, 0, width, 72, 0xc0141218);
+        canvas.fill(0, 0, 3, 72, color);
+        canvas.text(client.font, "S T Y L E", 10, 7, 0xffaaaaaf, false);
 
         float rankScale = rank == 7 ? 1.65f : 2.8f;
         if (!state.notices().isEmpty()) {
             float age = state.time() - state.notices().getFirst().tick() + delta.getGameTimeDeltaPartialTick(false);
             rankScale += Math.max(0, 1 - age / 6) * 0.15f;
         }
-        graphics.pose().pushMatrix();
-        graphics.pose().translate(10, 20).scale(rankScale, rankScale);
-        graphics.text(client.font, StyleState.RANKS[rank], 0, 0, color, true);
-        graphics.pose().popMatrix();
-        graphics.text(client.font, StyleState.TITLES[rank], 10, 48, 0xffeeeeef, false);
-        graphics.fill(10, 62, width - 10, 66, 0xff39343e);
-        graphics.fill(10, 62, 10 + Math.round((width - 20) * state.progress()), 66, color);
+        canvas.pose().pushMatrix();
+        canvas.pose().translate(10, 20).scale(rankScale, rankScale);
+        canvas.text(client.font, StyleState.RANKS[rank], 0, 0, color, true);
+        canvas.pose().popMatrix();
+        canvas.text(client.font, StyleState.TITLES[rank], 10, 48, 0xffeeeeef, false);
+        canvas.fill(10, 62, width - 10, 66, 0xff39343e);
+        canvas.fill(10, 62, 10 + Math.round((width - 20) * state.progress()), 66, color);
         boolean appliesToXp = client.hasSingleplayerServer() && config.styleXpEnabled
             && client.player.isAlive() && !client.player.isCreative() && !client.player.isSpectator();
-        graphics.text(client.font, (appliesToXp ? "XP x" : "STYLE x") + state.multiplier(), 5, 79, color, true);
+        canvas.text(client.font, (appliesToXp ? "XP x" : "STYLE x") + state.multiplier(), 5, 79, color, true);
         if (state.combo() > 1) {
             String combo = state.combo() + " KILLS";
-            graphics.text(client.font, combo, width - client.font.width(combo) - 5, 79, color, true);
+            canvas.text(client.font, combo, width - client.font.width(combo) - 5, 79, color, true);
         }
         int row = 96;
         for (StyleState.Notice notice : state.notices()) {
@@ -64,9 +57,8 @@ public final class StyleHud {
             int rgb = notice.points() < 0 ? 0xff5b59 : 0xe4e4e8;
             String text = (notice.points() < 0 ? "- " : "+ ") + notice.label();
             int slide = (int) (Math.max(0, 6 - age) * 2);
-            graphics.text(client.font, text, 5 + slide, row, (alpha << 24) | rgb, true);
+            canvas.text(client.font, text, 5 + slide, row, (alpha << 24) | rgb, true);
             row += 13;
         }
-        graphics.pose().popMatrix();
     }
 }

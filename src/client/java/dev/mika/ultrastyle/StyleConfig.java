@@ -14,7 +14,7 @@ public final class StyleConfig {
     public boolean bossBarsEnabled = true;
     public boolean styleXpEnabled = true;
     public float hudScale = 1;
-    public float hudTiltDegrees = -4;
+    public float hudYawDegrees = 30;
     public int rightMargin = 12;
     public int verticalOffset = 0;
 
@@ -36,9 +36,9 @@ public final class StyleConfig {
     }
     private void sanitize() {
         if (!Float.isFinite(hudScale)) hudScale = 1;
-        if (!Float.isFinite(hudTiltDegrees)) hudTiltDegrees = -4;
+        if (!Float.isFinite(hudYawDegrees)) hudYawDegrees = 30;
         hudScale = Math.clamp(hudScale, 0.5f, 2f);
-        hudTiltDegrees = Math.clamp(hudTiltDegrees, -15f, 15f);
+        hudYawDegrees = Math.clamp(hudYawDegrees, -45f, 45f);
         rightMargin = Math.clamp(rightMargin, 0, 500);
         verticalOffset = Math.clamp(verticalOffset, -500, 500);
     }
