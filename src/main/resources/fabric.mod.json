@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "ultrastyle",
+  "version": "${version}",
+  "name": "UltraStyle",
+  "description": "A client-first style meter, boss HUD, and optional single-player XP rewards.",
+  "environment": "client",
+  "entrypoints": { "client": ["dev.mika.ultrastyle.UltraStyleClient"] },
+  "mixins": ["ultrastyle.client.mixins.json"],
+  "depends": { "fabricloader": ">=0.20.1", "minecraft": "~26.3", "java": ">=25", "fabric-api": "*" }
+}

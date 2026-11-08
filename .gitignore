@@ -1,0 +1,85 @@
+# Gradle / Fabric Loom caches and generated outputs (including subprojects)
+.gradle/
+.loom-cache/
+build/
+out/
+bin/
+*.class
+*.hprof
+hs_err_pid*
+replay_pid*
+
+# Built Java artifacts; keep the checked-in Gradle wrapper bootstrap
+*.jar
+*.war
+*.ear
+!gradle/wrapper/gradle-wrapper.jar
+
+# Minecraft development instances: worlds, mods, generated assets and account data
+run/
+runClient/
+runServer/
+runs/
+logs/
+crash-reports/
+*.log
+usercache.json
+usernamecache.json
+
+# IntelliJ IDEA / Android Studio
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Eclipse
+.classpath
+.project
+.settings/
+.metadata/
+
+# VS Code: keep intentionally shared project configuration eligible for tracking
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/tasks.json
+*.code-workspace
+
+# NetBeans
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# Local settings, credentials and signing keys
+.env
+.env.*
+!.env.example
+!.env.*.example
+local.properties
+gradle-local.properties
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Editor backups and temporary files
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+.history/
+
+# OS metadata
+.DS_Store
+._*
+.AppleDouble
+.LSOverride
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+.Trash-*/
