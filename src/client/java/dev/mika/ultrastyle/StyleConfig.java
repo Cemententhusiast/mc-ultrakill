@@ -12,8 +12,7 @@ public final class StyleConfig {
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("ultrastyle.json");
     public boolean hudEnabled = true;
     public boolean bossBarsEnabled = true;
-    public boolean singleplayerXp = false;
-    public double xpPerPoint = 1;
+    public boolean styleXpEnabled = true;
     public float hudScale = 1;
     public float hudTiltDegrees = -4;
     public int rightMargin = 12;
@@ -36,10 +35,8 @@ public final class StyleConfig {
         return config;
     }
     private void sanitize() {
-        if (!Double.isFinite(xpPerPoint)) xpPerPoint = 1;
         if (!Float.isFinite(hudScale)) hudScale = 1;
         if (!Float.isFinite(hudTiltDegrees)) hudTiltDegrees = -4;
-        xpPerPoint = Math.clamp(xpPerPoint, 0, 100);
         hudScale = Math.clamp(hudScale, 0.5f, 2f);
         hudTiltDegrees = Math.clamp(hudTiltDegrees, -15f, 15f);
         rightMargin = Math.clamp(rightMargin, 0, 500);

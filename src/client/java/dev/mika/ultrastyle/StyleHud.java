@@ -49,9 +49,11 @@ public final class StyleHud {
         graphics.text(client.font, StyleState.TITLES[rank], 10, 48, 0xffeeeeef, false);
         graphics.fill(10, 62, width - 10, 66, 0xff39343e);
         graphics.fill(10, 62, 10 + Math.round((width - 20) * state.progress()), 66, color);
-        graphics.text(client.font, "SCORE " + state.total(), 5, 79, 0xffeeeeef, true);
+        boolean appliesToXp = client.hasSingleplayerServer() && config.styleXpEnabled
+            && client.player.isAlive() && !client.player.isCreative() && !client.player.isSpectator();
+        graphics.text(client.font, (appliesToXp ? "XP x" : "STYLE x") + state.multiplier(), 5, 79, color, true);
         if (state.combo() > 1) {
-            String combo = "x" + state.combo();
+            String combo = state.combo() + " KILLS";
             graphics.text(client.font, combo, width - client.font.width(combo) - 5, 79, color, true);
         }
         int row = 96;

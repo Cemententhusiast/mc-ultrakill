@@ -62,6 +62,13 @@ public final class StyleState {
         int rank = rank();
         return rank == THRESHOLDS.length - 1 ? 1 : (float) ((style - THRESHOLDS[rank]) / (THRESHOLDS[rank + 1] - THRESHOLDS[rank]));
     }
+    /** D through ULTRAKILL correspond to x1 through x8. */
+    public int multiplier() { return rank() + 1; }
+
+    public static int multiplyExperience(int amount, int multiplier) {
+        if (amount <= 0) return amount;
+        return (int) Math.min(Integer.MAX_VALUE, (long) amount * Math.clamp(multiplier, 1, 8));
+    }
     public long time() { return tick; }
     public long total() { return total; }
     public double style() { return style; }

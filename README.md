@@ -1,7 +1,7 @@
 # UltraStyle
 
 A client-first Minecraft Java **26.3** mod built with **Fabric** and **Java 25**.
-It adds an ULTRAKILL-inspired style display and boss bars, with optional real XP rewards in single-player. It uses original, code-drawn UI and Minecraft's font; no ULTRAKILL assets are bundled.
+It adds an ULTRAKILL-inspired style display and boss bars, with rank-based XP multiplication in single-player. It uses original, code-drawn UI and Minecraft's font; no ULTRAKILL assets are bundled.
 
 ## Install and play
 
@@ -12,9 +12,9 @@ The mod does not need to be installed on multiplayer servers. It is explicitly c
 
 ## Features
 
-- Right-side rank, progress meter, session score, multikill count, and fading action feed.
+- Right-side rank, progress meter, XP multiplier, multikill count, and fading action feed.
 - The entire style panel tilts upward toward the right by 4 degrees by default. Its rotated bounds stay inside the screen.
-- Ranks D, C, B, A, S, SS, SSS, and ULTRAKILL.
+- Ranks D, C, B, A, S, SS, SSS, and ULTRAKILL provide XP multipliers ×1, ×2, ×3, ×4, ×5, ×6, ×7, and ×8 respectively. These are our Minecraft balancing values, not an exact recreation of ULTRAKILL mechanics.
 - Hostile mob kills award 100 points; other mobs award 25.
 - Consecutive kills within four seconds add 50 bonus points per combo step, capped at 200 bonus points per kill.
 - Ordinary blocks award 1 point; blocks whose registry names end in `_ore`, plus ancient debris, award 20.
@@ -30,16 +30,22 @@ These commands run locally and do not require operator permissions:
 
 | Command | Effect |
 | --- | --- |
-| `/ultrastyle` | Show score, XP setting, and command hints |
+| `/ultrastyle` | Show style multiplier, XP setting, and command hints |
 | `/ultrastyle hud` | Toggle the style panel |
 | `/ultrastyle tilt -4` | Set the score panel angle immediately (−15 to 15 degrees); use 0 for a level panel |
 | `/ultrastyle bosses` | Toggle replacement boss bars; disabling restores vanilla bars |
-| `/ultrastyle xp 5` | Enable **single-player only** rewards at 5 XP per awarded point |
-| `/ultrastyle xp 0` | Disable XP rewards |
+| `/ultrastyle xp on` | Enable the rank-based XP multiplier in single-player (default) |
+| `/ultrastyle xp off` | Restore normal XP gain while keeping the style HUD |
 | `/ultrastyle reset` | Clear the local score session; already earned XP remains |
 | `/ultrastyle reload` | Reload the configuration file |
 
-XP rewards are **disabled by default**. They award actual XP points, not levels, on the integrated server thread. A 100-point kill with `/ultrastyle xp 5` grants 500 extra XP. Fractional multipliers work, and the accepted range is 0–100. Only accepted positive score awards convert to XP, so the mining cap also limits mining XP. Damage never removes XP. Rewards are additive to vanilla XP drops and cannot change XP on remote servers.
+The current style rank multiplies **incoming XP points**, rather than converting score points into XP. For example, collecting 5 XP at rank A (×4) grants 20 XP total. The multiplier is enabled by default in single-player and applies once when XP is received, using the most recently published HUD rank. Damage, decay, and death lower it; earned XP is never removed.
+
+Kills and block breaks still build style. Breaking dirt generates no XP by itself, while collecting ordinary XP from mobs, ores, furnaces, trading or bottles benefits from the current multiplier. Mending consumes its vanilla share before the remaining XP reaches the player and is multiplied. Positive XP-point grants from commands or mods using the standard player XP method also multiply; negative adjustments and level grants do not. Creative and spectator players are excluded.
+
+The HUD shows `XP xN` when the single-player multiplier is enabled and `STYLE xN` when it is cosmetic. The kill streak is labeled separately to avoid confusing it with the XP multiplier. On remote servers, XP stays entirely server-controlled.
+
+This replaces the earlier `/ultrastyle xp <number>` conversion. Old `singleplayerXp` and `xpPerPoint` fields are ignored; the new `styleXpEnabled` option defaults to true. Use `/ultrastyle xp off` to opt out. Saving a setting writes the new configuration format.
 
 `config/ultrastyle.json` is created on first launch:
 
@@ -47,8 +53,7 @@ XP rewards are **disabled by default**. They award actual XP points, not levels,
 {
   "hudEnabled": true,
   "bossBarsEnabled": true,
-  "singleplayerXp": false,
-  "xpPerPoint": 1.0,
+  "styleXpEnabled": true,
   "hudScale": 1.0,
   "hudTiltDegrees": -4.0,
   "rightMargin": 12,
@@ -80,16 +85,16 @@ The Gradle wrapper is included; use JDK 25.
 
 On Windows, use `gradlew.bat`. Generated output, development worlds, logs, caches, and local credentials are excluded by `.gitignore`; wrapper files remain trackable.
 
-The pure Java scoring engine lives in `StyleState`. Client event handling, configuration and commands live in `UltraStyleClient`. `StyleHud` and `BossBars` draw the UI. Two client mixins observe vanilla damage/death packets and replace boss-bar drawing. No custom network protocol is needed.
+The pure Java scoring engine lives in `StyleState`. Client event handling, configuration and commands live in `UltraStyleClient`. `StyleHud` and `BossBars` draw the UI. Client mixins observe vanilla damage/death packets and replace boss-bar drawing. An integrated-server player mixin multiplies incoming XP using an immutable snapshot of the local player’s style rank; it never grants XP recursively or changes another LAN player’s XP. No custom network protocol is needed.
 
 ## Manual playtest checklist
 
 1. Enter a survival world, break blocks and ore, and verify the ten-second mining cap.
 2. Kill mobs with melee and projectiles; make two kills within four seconds, then wait and repeat.
 3. Take damage, die, respawn, change dimension, and reconnect; check combo and score reset behavior.
-4. Enable `/ultrastyle xp 5`, kill a hostile mob, and check that the extra 500 XP is granted once. Disable rewards with `/ultrastyle xp 0`.
+4. Enable `/ultrastyle xp on`, build rank A (×4), and check that receiving 5 vanilla XP grants 20 XP total. Disable with `/ultrastyle xp off` and check that the same grant gives 5. Verify that breaking dirt gives no XP and that a second LAN player receives normal XP.
 5. In a cheats-enabled test world, use `/bossbar add ultrastyle:test "TEST BOSS"` and `/bossbar set ultrastyle:test players @s`. Change its value to inspect the damage trail; add a second bar to inspect stacking.
 6. Resize the window, change GUI scale, toggle F1, and toggle both overlays using the client commands.
 7. Join an unmodified multiplayer server. Check local scoring and verify that enabling the XP option does not grant server XP.
 
-Unit tests cover scoring and award amounts. Runtime rendering, server compatibility and gameplay need the manual checks above.
+Unit tests cover style progression, multiplier changes, positive/negative XP handling and overflow protection. Runtime rendering, server compatibility and gameplay need the manual checks above.

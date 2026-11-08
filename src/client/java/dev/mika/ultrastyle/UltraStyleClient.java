@@ -3,6 +3,7 @@ package dev.mika.ultrastyle;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
@@ -24,7 +25,6 @@ import net.minecraft.world.level.block.state.BlockState;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.IntSupplier;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.*;
 
 public final class UltraStyleClient implements ClientModInitializer {
@@ -35,7 +35,9 @@ public final class UltraStyleClient implements ClientModInitializer {
     private static final Map<Integer, Hit> hits = new HashMap<>();
     private static final Map<BlockPos, PendingBlock> blocks = new HashMap<>();
     private static boolean dead;
-    private static double xpRemainder;
+    // Immutable snapshot crosses from the client thread to the integrated server thread.
+    private record XpSnapshot(Object server, UUID player, int multiplier) {}
+    private static volatile XpSnapshot xpSnapshot = new XpSnapshot(null, null, 1);
     private record Hit(UUID uuid, long tick) {}
     private record PendingBlock(int points, long tick) {}
 
@@ -54,7 +56,7 @@ public final class UltraStyleClient implements ClientModInitializer {
             }
         });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-            if (entity instanceof ServerPlayer player) integrated(player, () -> { state.death(); return 0; });
+            if (entity instanceof ServerPlayer player) integrated(player, () -> state.death());
             else if (entity instanceof Mob) {
                 // Vanilla kill credit includes player-owned projectiles and recent indirect damage.
                 Entity credit = source.getEntity();
@@ -67,7 +69,7 @@ public final class UltraStyleClient implements ClientModInitializer {
         });
         ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, base, amount, blocked) -> {
             if (entity instanceof ServerPlayer player && !blocked && amount > 0)
-                integrated(player, () -> { state.damage(); return 0; });
+                integrated(player, () -> state.damage());
         });
         registerCommands();
     }
@@ -78,23 +80,15 @@ public final class UltraStyleClient implements ClientModInitializer {
     }
 
     /** Called on the integrated server thread; never trusts a multiplayer client to award XP. */
-    private static void integrated(ServerPlayer player, IntSupplier action) {
+    private static void integrated(ServerPlayer player, Runnable action) {
         var server = player.level().getServer();
         UUID uuid = player.getUUID();
         Minecraft client = Minecraft.getInstance();
         client.execute(() -> {
             if (client.getSingleplayerServer() != server || client.player == null || !client.player.getUUID().equals(uuid)) return;
             ensureSession(client);
-            int points = action.getAsInt();
-            if (points <= 0 || !config.singleplayerXp) return;
-            xpRemainder += points * config.xpPerPoint;
-            int xp = (int) xpRemainder;
-            xpRemainder -= xp;
-            if (xp <= 0) return;
-            server.execute(() -> {
-                ServerPlayer current = server.getPlayerList().getPlayer(uuid);
-                if (current == player && current.isAlive()) current.giveExperiencePoints(xp);
-            });
+            action.run();
+            publishMultiplier(client);
         });
     }
 
@@ -102,7 +96,7 @@ public final class UltraStyleClient implements ClientModInitializer {
         if (connection != client.getConnection()) {
             connection = client.getConnection();
             state = new StyleState();
-            xpRemainder = 0;
+            xpSnapshot = new XpSnapshot(null, null, 1);
             dead = false;
         }
         if (trackedLevel != client.level) {
@@ -113,8 +107,10 @@ public final class UltraStyleClient implements ClientModInitializer {
 
     private static void tick(Minecraft client) {
         ensureSession(client);
+        publishMultiplier(client);
         if (client.player == null || client.level == null || client.isPaused()) return;
         state.tick();
+        publishMultiplier(client);
         if (client.hasSingleplayerServer()) return;
         if (client.player.isDeadOrDying() && !dead) { state.death(); hits.clear(); blocks.clear(); }
         dead = client.player.isDeadOrDying();
@@ -158,10 +154,35 @@ public final class UltraStyleClient implements ClientModInitializer {
             state.kill(entity instanceof Enemy ? 100 : 25);
     }
 
+    private static void publishMultiplier(Minecraft client) {
+        boolean active = config != null && config.styleXpEnabled && client.player != null
+            && client.player.isAlive() && !client.player.isCreative() && !client.player.isSpectator();
+        xpSnapshot = new XpSnapshot(client.getSingleplayerServer(),
+            client.player == null ? null : client.player.getUUID(), active ? state.multiplier() : 1);
+    }
+
+    /** Runs on the server thread. Remote servers and other LAN players never match the snapshot. */
+    public static int multiplyExperience(ServerPlayer player, int amount) {
+        XpSnapshot snapshot = xpSnapshot;
+        if (snapshot.server() != player.level().getServer() || !player.getUUID().equals(snapshot.player())
+                || !player.isAlive() || player.isCreative() || player.isSpectator()) return amount;
+        return StyleState.multiplyExperience(amount, snapshot.multiplier());
+    }
+
+    private static int setXpEnabled(boolean enabled, FabricClientCommandSource source) {
+        config.styleXpEnabled = enabled;
+        config.save();
+        Minecraft client = Minecraft.getInstance();
+        publishMultiplier(client);
+        source.sendFeedback(Component.literal(
+            "Style XP multiplier: " + (enabled ? "on (single-player only)" : "off")));
+        return 1;
+    }
+
     private static void registerCommands() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(literal("ultrastyle")
             .executes(ctx -> {
-                ctx.getSource().sendFeedback(Component.literal("UltraStyle | score " + state.total() + " | XP " + (config.singleplayerXp ? config.xpPerPoint + "/point (single-player only)" : "off") + " | hud, tilt <-15–15>, bosses, xp <0–100>, reset, reload")); return 1;
+                ctx.getSource().sendFeedback(Component.literal("UltraStyle | style x" + state.multiplier() + " | XP " + (config.styleXpEnabled ? "rank multiplier (single-player only)" : "off") + " | hud, tilt <-15–15>, bosses, xp on/off, reset, reload")); return 1;
             })
             .then(literal("hud").executes(ctx -> { config.hudEnabled = !config.hudEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Style HUD: " + config.hudEnabled)); return 1; }))
             .then(literal("tilt").then(argument("degrees", DoubleArgumentType.doubleArg(-15, 15)).executes(ctx -> {
@@ -169,12 +190,11 @@ public final class UltraStyleClient implements ClientModInitializer {
                 ctx.getSource().sendFeedback(Component.literal("Style HUD tilt: " + config.hudTiltDegrees + " degrees")); return 1;
             })))
             .then(literal("bosses").executes(ctx -> { config.bossBarsEnabled = !config.bossBarsEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Custom boss bars: " + config.bossBarsEnabled)); return 1; }))
-            .then(literal("xp").then(argument("multiplier", DoubleArgumentType.doubleArg(0, 100)).executes(ctx -> {
-                config.xpPerPoint = DoubleArgumentType.getDouble(ctx, "multiplier"); config.singleplayerXp = config.xpPerPoint > 0; xpRemainder = 0; config.save();
-                ctx.getSource().sendFeedback(Component.literal("Single-player XP: " + config.xpPerPoint + " per score point. Multiplayer XP is unchanged.")); return 1;
-            })))
-            .then(literal("reset").executes(ctx -> { state = new StyleState(); hits.clear(); blocks.clear(); xpRemainder = 0; ctx.getSource().sendFeedback(Component.literal("Style session reset.")); return 1; }))
-            .then(literal("reload").executes(ctx -> { config = StyleConfig.load(); ctx.getSource().sendFeedback(Component.literal("UltraStyle configuration reloaded.")); return 1; }))
+            .then(literal("xp")
+                .then(literal("on").executes(ctx -> setXpEnabled(true, ctx.getSource())))
+                .then(literal("off").executes(ctx -> setXpEnabled(false, ctx.getSource()))))
+            .then(literal("reset").executes(ctx -> { state = new StyleState(); hits.clear(); blocks.clear(); publishMultiplier(Minecraft.getInstance()); ctx.getSource().sendFeedback(Component.literal("Style session reset.")); return 1; }))
+            .then(literal("reload").executes(ctx -> { config = StyleConfig.load(); publishMultiplier(Minecraft.getInstance()); ctx.getSource().sendFeedback(Component.literal("UltraStyle configuration reloaded.")); return 1; }))
         ));
     }
 }
