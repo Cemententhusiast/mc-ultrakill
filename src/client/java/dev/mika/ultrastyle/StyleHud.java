@@ -10,20 +10,23 @@ public final class StyleHud {
     public static void render(GuiGraphicsExtractor graphics, DeltaTracker delta) {
         var client = Minecraft.getInstance();
         var config = UltraStyleClient.config;
-        if (!config.hudEnabled || client.player == null || client.gui.hud.isHidden()) return;
+        if (!config.hudEnabled || client.player == null || client.player.isDeadOrDying() || client.gui.hud.isHidden()) return;
         StyleState state = UltraStyleClient.state;
         float scale = Math.min(config.hudScale, Math.min(graphics.guiWidth() / 180f, graphics.guiHeight() / 200f));
-        int width = 150;
-        int height = 180; // Reserve space for all five feed entries, even while empty.
+        FightResults.Display result = FightResults.bossDisplay();
+        int width = result == null ? 150 : 180;
+        int height = result == null ? 180 : ResultsPanel.HEIGHT; // Reserve space for all five feed entries, even while empty.
         HudPerspective projection = new HudPerspective(width, height, config.hudYawDegrees);
         float projectedWidth = projection.right() - projection.left();
         float projectedHeight = projection.bottom() - projection.top();
         scale = Math.min(scale, Math.min(graphics.guiWidth() / projectedWidth, graphics.guiHeight() / projectedHeight));
+        if (result != null) scale = Math.min(scale, graphics.guiHeight() * 0.70f / projectedHeight);
         float originX = Math.clamp(graphics.guiWidth() - config.rightMargin - projection.right() * scale,
             -projection.left() * scale, Math.max(-projection.left() * scale, graphics.guiWidth() - projection.right() * scale));
-        float originY = Math.clamp(graphics.guiHeight() / 2f + 25 * scale + config.verticalOffset,
+        float originY = Math.clamp((result == null ? graphics.guiHeight() / 2f + 25 * scale : graphics.guiHeight() * 0.55f) + config.verticalOffset,
             -projection.top() * scale, Math.max(-projection.top() * scale, graphics.guiHeight() - projection.bottom() * scale));
         PerspectiveHudCanvas canvas = new PerspectiveHudCanvas(graphics, projection, originX, originY, scale);
+        if (result != null) { ResultsPanel.paint(canvas, result, width, null); return; }
         int rank = state.rank();
         int color = COLORS[rank];
         canvas.fill(0, 0, width, 72, 0xc0141218);

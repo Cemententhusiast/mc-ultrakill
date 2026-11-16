@@ -28,7 +28,7 @@ import java.util.UUID;
 import static net.fabricmc.fabric.api.client.command.v2.ClientCommands.*;
 
 public final class UltraStyleClient implements ClientModInitializer {
-    public static StyleConfig config;
+    public static volatile StyleConfig config;
     public static StyleState state = new StyleState();
     private static Object connection;
     private static ClientLevel trackedLevel;
@@ -56,14 +56,21 @@ public final class UltraStyleClient implements ClientModInitializer {
             }
         });
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, source) -> {
-            if (entity instanceof ServerPlayer player) integrated(player, () -> state.death());
-            else if (entity instanceof Mob) {
-                // Vanilla kill credit includes player-owned projectiles and recent indirect damage.
+            if (entity instanceof ServerPlayer player) {
+                integrated(player, () -> { FightResults.playerDied(); state.death(); });
+            } else if (entity instanceof Mob) {
+                UUID id = entity.getUUID();
+                boolean boss = FightResults.isBoss(entity);
                 Entity credit = source.getEntity();
                 if (!(credit instanceof ServerPlayer)) credit = entity.getKillCredit();
-                if (credit instanceof ServerPlayer player && !player.isCreative() && !player.isSpectator()) {
+                ServerPlayer credited = credit instanceof ServerPlayer player && !player.isCreative() && !player.isSpectator() ? player : null;
+                if (credited != null) {
                     int points = entity instanceof Enemy ? 100 : 25;
-                    integrated(player, () -> state.kill(points));
+                    integrated(credited, () -> { state.kill(points); FightResults.killed(id, boss, true); });
+                }
+                // Participants still receive a fight summary if another player lands the final hit.
+                if (boss) for (ServerPlayer participant : entity.level().getServer().getPlayerList().getPlayers()) {
+                    if (participant != credited) integrated(participant, () -> FightResults.killed(id, true, false));
                 }
             }
         });
@@ -80,7 +87,7 @@ public final class UltraStyleClient implements ClientModInitializer {
     }
 
     /** Called on the integrated server thread; never trusts a multiplayer client to award XP. */
-    private static void integrated(ServerPlayer player, Runnable action) {
+    static void integrated(ServerPlayer player, Runnable action) {
         var server = player.level().getServer();
         UUID uuid = player.getUUID();
         Minecraft client = Minecraft.getInstance();
@@ -103,6 +110,7 @@ public final class UltraStyleClient implements ClientModInitializer {
             trackedLevel = client.level;
             hits.clear(); blocks.clear(); dead = false;
         }
+        FightResults.ensure(client);
     }
 
     private static void tick(Minecraft client) {
@@ -110,6 +118,7 @@ public final class UltraStyleClient implements ClientModInitializer {
         publishMultiplier(client);
         if (client.player == null || client.level == null || client.isPaused()) return;
         state.tick();
+        FightResults.tick(client);
         publishMultiplier(client);
         if (client.hasSingleplayerServer()) return;
         if (client.player.isDeadOrDying() && !dead) { state.death(); hits.clear(); blocks.clear(); }
@@ -132,6 +141,7 @@ public final class UltraStyleClient implements ClientModInitializer {
         Minecraft client = Minecraft.getInstance();
         if (client.player == null || client.level == null || client.hasSingleplayerServer()) return;
         ensureSession(client);
+        FightResults.remoteContact(client.level.getEntity(packet.entityId()), client.level.getEntity(packet.sourceCauseId()));
         if (packet.entityId() == client.player.getId()) {
             if (!client.player.isDeadOrDying()) state.damage();
             return;
@@ -150,8 +160,9 @@ public final class UltraStyleClient implements ClientModInitializer {
         Minecraft client = Minecraft.getInstance();
         if (client.hasSingleplayerServer() || !(entity instanceof Mob) || client.player == null || client.player.isDeadOrDying()) return;
         Hit hit = hits.remove(entity.getId());
-        if (hit != null && hit.uuid().equals(entity.getUUID()) && state.time() - hit.tick() <= 100)
-            state.kill(entity instanceof Enemy ? 100 : 25);
+        boolean credited = hit != null && hit.uuid().equals(entity.getUUID()) && state.time() - hit.tick() <= 100;
+        if (credited) state.kill(entity instanceof Enemy ? 100 : 25);
+        FightResults.killed(entity.getUUID(), FightResults.isBoss(entity), credited);
     }
 
     private static void publishMultiplier(Minecraft client) {
@@ -182,7 +193,7 @@ public final class UltraStyleClient implements ClientModInitializer {
     private static void registerCommands() {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) -> dispatcher.register(literal("ultrastyle")
             .executes(ctx -> {
-                ctx.getSource().sendFeedback(Component.literal("UltraStyle | style x" + state.multiplier() + " | XP " + (config.styleXpEnabled ? "rank multiplier (single-player only)" : "off") + " | hud, tilt <-45–45>, bosses, xp on/off, reset, reload")); return 1;
+                ctx.getSource().sendFeedback(Component.literal("UltraStyle | style x" + state.multiplier() + " | XP " + (config.styleXpEnabled ? "rank multiplier (single-player only)" : "off") + " | hud, tilt <-45–45>, bosses, xp on/off, dismiss, reset, reload")); return 1;
             })
             .then(literal("hud").executes(ctx -> { config.hudEnabled = !config.hudEnabled; config.save(); ctx.getSource().sendFeedback(Component.literal("Style HUD: " + config.hudEnabled)); return 1; }))
             .then(literal("tilt").then(argument("degrees", DoubleArgumentType.doubleArg(-45, 45)).executes(ctx -> {
@@ -193,7 +204,8 @@ public final class UltraStyleClient implements ClientModInitializer {
             .then(literal("xp")
                 .then(literal("on").executes(ctx -> setXpEnabled(true, ctx.getSource())))
                 .then(literal("off").executes(ctx -> setXpEnabled(false, ctx.getSource()))))
-            .then(literal("reset").executes(ctx -> { state = new StyleState(); hits.clear(); blocks.clear(); publishMultiplier(Minecraft.getInstance()); ctx.getSource().sendFeedback(Component.literal("Style session reset.")); return 1; }))
+            .then(literal("dismiss").executes(ctx -> { FightResults.dismiss(); return 1; }))
+            .then(literal("reset").executes(ctx -> { state = new StyleState(); hits.clear(); blocks.clear(); FightResults.reset(Minecraft.getInstance()); publishMultiplier(Minecraft.getInstance()); ctx.getSource().sendFeedback(Component.literal("Style session reset.")); return 1; }))
             .then(literal("reload").executes(ctx -> { config = StyleConfig.load(); publishMultiplier(Minecraft.getInstance()); ctx.getSource().sendFeedback(Component.literal("UltraStyle configuration reloaded.")); return 1; }))
         ));
     }

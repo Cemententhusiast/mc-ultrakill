@@ -10,6 +10,7 @@ import java.nio.file.Path;
 public final class StyleConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
     private static final Path PATH = FabricLoader.getInstance().getConfigDir().resolve("ultrastyle.json");
+    public java.util.List<String> bossEntityTypes = java.util.List.of("minecraft:ender_dragon", "minecraft:wither");
     public boolean hudEnabled = true;
     public boolean bossBarsEnabled = true;
     public boolean styleXpEnabled = true;
@@ -35,6 +36,8 @@ public final class StyleConfig {
         return config;
     }
     private void sanitize() {
+        if (bossEntityTypes == null) bossEntityTypes = java.util.List.of("minecraft:ender_dragon", "minecraft:wither");
+        bossEntityTypes = bossEntityTypes.stream().filter(java.util.Objects::nonNull).distinct().limit(128).toList();
         if (!Float.isFinite(hudScale)) hudScale = 1;
         if (!Float.isFinite(hudYawDegrees)) hudYawDegrees = 30;
         hudScale = Math.clamp(hudScale, 0.5f, 2f);

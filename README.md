@@ -24,6 +24,20 @@ The mod does not need to be installed on multiplayer servers. It is explicitly c
 - Boss bars have thick outlines, server-provided colors and segments, a percentage, and a delayed damage trail. Multiple bars stack with an overflow count.
 - F1 hides both overlays. Pausing single-player pauses score decay.
 
+## Boss and life results
+
+Defeating a boss you have engaged replaces the style sidebar with a compact results card for 15 seconds. It shares the HUD's depth projection and positioning. `/ultrastyle dismiss` returns to the style meter early. A new active boss fight takes priority over a previous results card.
+
+The card shows boss name, difficulty at first contact, fight duration, style earned during the fight, personal-best score, peak style/rank, damage dealt to that boss, all damage taken during the encounter, kills and highest combo. Timing starts with the first damaging contact in either direction; a disappearing boss bar alone never counts as a kill. Leaving the dimension, unloading the boss or moving beyond 256 blocks abandons the encounter. Multiple engaged bosses have separate damage-dealt totals and share incoming damage and style earned during overlapping intervals.
+
+Player death replaces the normal death-screen artwork and score text with the same results design, using lifetime stats: elapsed time, style earned, personal best, peak rank/style, outgoing/incoming damage, kills and boss kills. Life tracking begins on joining a world or respawning; it does **not** reconstruct activity from before this client session. The original vanilla buttons, keyboard navigation, activation delay, title-screen confirmation and hardcore **Spectate** behavior remain in place. The custom death screen remains available even with the style sidebar hidden.
+
+Single-player damage totals measure actual health lost after mitigation, including fatal hits, capped by the victim's remaining health. Absorption/shield damage is excluded; 2 HP equals one heart. Multiplayer damage packets do not provide reliable amounts, so those rows display **N/A** and results are marked **OBSERVED**. Other multiplayer stats inherit the existing client-observation limitations.
+
+The Ender Dragon and Wither are recognized by default. Add registry IDs to `bossEntityTypes` in `config/ultrastyle.json` for other boss entities; mods with custom combat/death implementations may require additional integration. Arbitrary command-created boss bars cannot reliably be associated with an entity.
+
+Personal bests persist in `config/ultrastyle-records.json`, grouped by boss entity type (or life), starting difficulty and exact/observed mode, across worlds. Results are frozen at death; subsequent score decay cannot change them. `/ultrastyle reset` also starts a fresh statistics interval but keeps saved personal bests.
+
 ## Commands and configuration
 
 These commands run locally and do not require operator permissions:
@@ -38,6 +52,7 @@ These commands run locally and do not require operator permissions:
 | `/ultrastyle xp off` | Restore normal XP gain while keeping the style HUD |
 | `/ultrastyle reset` | Clear the local score session; already earned XP remains |
 | `/ultrastyle reload` | Reload the configuration file |
+| `/ultrastyle dismiss` | Dismiss the boss-results sidebar |
 
 The current style rank multiplies **incoming XP points**, rather than converting score points into XP. For example, collecting 5 XP at rank A (×4) grants 20 XP total. The multiplier is enabled by default in single-player and applies once when XP is received, using the most recently published HUD rank. Damage, decay, and death lower it; earned XP is never removed.
 
@@ -51,6 +66,7 @@ This replaces the earlier `/ultrastyle xp <number>` conversion. Old `singleplaye
 
 ```json
 {
+  "bossEntityTypes": ["minecraft:ender_dragon", "minecraft:wither"],
   "hudEnabled": true,
   "bossBarsEnabled": true,
   "styleXpEnabled": true,
@@ -83,6 +99,7 @@ The Gradle wrapper is included; use JDK 25.
 ./gradlew build       # Compile, run unit tests, package the mod
 ./gradlew runClient   # Launch an isolated development client in run/
 ./gradlew genSources  # Generate Minecraft sources for IDE inspection
+./gradlew runClientGameTest # Disposable-world boss/death/respawn integration test + screenshots
 ```
 
 On Windows, use `gradlew.bat`. Generated output, development worlds, logs, caches, and local credentials are excluded by `.gitignore`; wrapper files remain trackable.
@@ -99,4 +116,6 @@ The pure Java scoring engine lives in `StyleState`. Client event handling, confi
 6. Resize the window, change GUI scale, toggle F1, and toggle both overlays using the client commands.
 7. Join an unmodified multiplayer server. Check local scoring and verify that enabling the XP option does not grant server XP.
 
-Unit tests cover style progression, multiplier changes, positive/negative XP handling and overflow protection. Runtime rendering, server compatibility and gameplay need the manual checks above.
+Unit tests cover style progression, XP multipliers, perspective bounds, per-fight accounting, final-hit snapshots, concurrent bosses and life resets. The client integration test defeats a Wither, verifies actual damage and the final kill award, captures boss/death screenshots, and clicks the vanilla Respawn button. Screenshots are written under `build/run/clientGameTest/screenshots/`. Multiplayer, hardcore and custom-boss compatibility still need the manual checks above.
+
+The results layout uses the title, difficulty, ruled stat rows and highlighted rank arrangement seen in [ULTRAKILL results screenshots](https://steamcommunity.com/sharedfiles/filedetails/?id=2833295927), drawn with Minecraft’s own font and original UI code.

@@ -47,3 +47,15 @@ java {
 test {
     useJUnitPlatform()
 }
+
+// Isolated client integration tests; their worlds and screenshots live under build/.
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'ultrastyle-test'
+        enableGameTests = false
+        enableClientGameTests = true
+    }
+}
+sourceSets.gametest.compileClasspath += sourceSets.client.output
+sourceSets.gametest.runtimeClasspath += sourceSets.client.output
