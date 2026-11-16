@@ -1,12 +1,14 @@
 # UltraStyle
 
+**Beta 0.1 — early prerelease with limited playtesting.** Expect bugs and compatibility issues; this is not a stable release.
+
 A client-first Minecraft Java **26.3** mod built with **Fabric** and **Java 25**.
 It adds an ULTRAKILL-inspired style display and boss bars, with rank-based XP multiplication in single-player. It uses original, code-drawn UI and Minecraft's font; no ULTRAKILL assets are bundled.
 
 ## Install and play
 
 Install Fabric Loader 0.20.1 or newer for Minecraft 26.3, and Fabric API for that version.
-Put `ultrastyle-0.1.0.jar` from `build/libs/` into the client's `mods/` directory alongside Fabric API. Do not install the `-sources.jar`.
+Put `ultrastyle-0.1.0-beta.1.jar` from `build/libs/` into the client's `mods/` directory alongside Fabric API. Do not install the `-sources.jar`.
 
 The mod does not need to be installed on multiplayer servers. It is explicitly client-only and should not be installed on a dedicated server.
 
