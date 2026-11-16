@@ -130,16 +130,3 @@ On Windows, use `gradlew.bat`. Generated output, development worlds, logs, cache
 
 The pure Java scoring engine lives in `StyleState`. Client event handling, configuration and commands live in `UltraStyleClient`. `StyleHud` and `BossBars` draw the UI. Client mixins observe vanilla damage/death packets and replace boss-bar drawing. An integrated-server player mixin multiplies incoming XP using an immutable snapshot of the local player’s style rank; it never grants XP recursively or changes another LAN player’s XP. No custom network protocol is needed.
 
-## Manual playtest checklist
-
-1. Enter a survival world, break blocks and ore, and verify the ten-second mining cap.
-2. Kill mobs with melee and projectiles; make two kills within four seconds, then wait and repeat.
-3. Take damage, die, respawn, change dimension, and reconnect; check combo and score reset behavior.
-4. Enable `/ultrastyle xp on`, build rank A (×4), and check that receiving 5 vanilla XP grants 20 XP total. Disable with `/ultrastyle xp off` and check that the same grant gives 5. Verify that breaking dirt gives no XP and that a second LAN player receives normal XP.
-5. In a cheats-enabled test world, use `/bossbar add ultrastyle:test "TEST BOSS"` and `/bossbar set ultrastyle:test players @s`. Change its value to inspect the damage trail; add a second bar to inspect stacking.
-6. Resize the window, change GUI scale, toggle F1, and toggle both overlays using the client commands.
-7. Join an unmodified multiplayer server. Check local scoring and verify that enabling the XP option does not grant server XP.
-
-Unit tests cover style progression, XP multipliers, perspective bounds, per-fight accounting, final-hit snapshots, concurrent bosses and life resets. The client integration test defeats a Wither, verifies actual damage and the final kill award, captures boss/death screenshots, and clicks the vanilla Respawn button. Screenshots are written under `build/run/clientGameTest/screenshots/`. Multiplayer, hardcore and custom-boss compatibility still need the manual checks above.
-
-The results layout uses the title, difficulty, ruled stat rows and highlighted rank arrangement seen in [ULTRAKILL results screenshots](https://steamcommunity.com/sharedfiles/filedetails/?id=2833295927), drawn with Minecraft’s own font and original UI code.
