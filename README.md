@@ -5,6 +5,28 @@
 A client-first Minecraft Java **26.3** mod built with **Fabric** and **Java 25**.
 It adds an ULTRAKILL-inspired style display and boss bars, with rank-based XP multiplication in single-player. It uses original, code-drawn UI and Minecraft's font; no ULTRAKILL assets are bundled.
 
+## Screenshots
+
+Captured in Minecraft in a staged single-player arena, using the mod's actual HUD and combat tracking.
+
+### Style meter and boss HUD
+
+The perspective sidebar tracks rank, XP multiplier and multikills alongside the custom Wither health bar.
+
+![UltraStyle style meter and custom Wither boss bar](docs/screenshots/style-and-boss-hud.png)
+
+### Boss fight results
+
+Defeating the Wither replaces the sidebar with the fight's score, peak rank, damage and personal best.
+
+![Wither fight results in the UltraStyle sidebar](docs/screenshots/boss-results.png)
+
+### Life summary
+
+The death screen shows lifetime combat stats while retaining the Respawn and Title Screen buttons.
+
+![UltraStyle life summary and vanilla respawn controls](docs/screenshots/life-summary.png)
+
 ## Install and play
 
 Install Fabric Loader 0.20.1 or newer for Minecraft 26.3, and Fabric API for that version.
